@@ -93,11 +93,10 @@ public class Client extends com.bugsnag.Client {
 
     public void notify(Throwable e, MetaData overrides) {
         try {
-            // Generate diagnostic data
-            MetaData diagnostics = new Diagnostics(applicationContext);
+            if(shouldIgnore(e)) return;
 
             // Merge local metaData into diagnostics
-            MetaData metaData = diagnostics.merge(overrides);
+            MetaData metaData = new Diagnostics(applicationContext).merge(overrides);
 
             // Create the error object to send
             final Error error = createError(e, metaData);
@@ -108,12 +107,13 @@ public class Client extends com.bugsnag.Client {
                 error.setContext(topActivityName);
             }
 
+            final Client thisClient = this;
+
             // Send the error
             safeAsync(new AnonymousDelegate(){
                 public void perform() {
                     try {
-                        Notification notif = createNotification(error);
-                        notif.deliver();
+                        thisClient.rawNotify(error);
                     } catch (NetworkException ex) {
                         // Write error to disk for later sending
                         logger.info("Could not send error(s) to Bugsnag, saving to disk to send later");
